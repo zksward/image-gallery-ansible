@@ -1,5 +1,7 @@
 ---
 - hosts: bastion
+  vars:
+      ansible_python_interpreter: /usr/bin/python3
 
   tasks:
     - name: Wait for cloud-init / user-data to finish
@@ -15,5 +17,6 @@
             - "CREATE DATABASE imagegallery;"
             - "CREATE USER imagegallery WITH ENCRYPTED PASSWORD '{{ lookup('aws_secret', 'ig/postgres/imagegallery') | from_json | json_query('password') | quote }}';"
             - "GRANT ALL PRIVILEGES ON DATABASE imagegallery TO imagegallery;"
+            - "\\q"
       environment:
-        PGPASSWORD: "{{lookup('aws_secret', 'ig/rds/postgres/admin') | from_json | json_query('password') | quote}}"
+        PGPASSWORD: "{{lookup('aws_secret', 'ig/rds/postgres/admin') | from_json | json_query('password') }}"
