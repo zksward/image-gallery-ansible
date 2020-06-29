@@ -6,3 +6,14 @@
       command: cloud-init status --wait
       become: yes
       changed_when: false
+
+    - name: Setup postgres user and start interactive shell
+      expect: 
+        command: "psql -h 'ig-module5-image-gallery.cbe9maka1qnr.us-east-2.rds.amazonaws.com' -U postgres"
+        responses:
+          (.*)=>:
+            - "CREATE DATABASE imagegallery;"
+            - "CREATE USER imagegallery WITH ENCRYPTED PASSWORD '{{ lookup('aws_secret', 'ig/postgres/imagegallery') | from_json | json_query('password') | quote }}';"
+            - "GRANT ALL PRIVILEGES ON DATABASE imagegallery TO imagegallery;"
+      environment:
+        PGPASSWORD: "{{lookup('aws_secret', 'ig/rds/postgres/admin') | from_json | json_query('password') | quote}}"

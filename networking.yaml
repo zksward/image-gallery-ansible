@@ -17,6 +17,7 @@
       ec2_vpc_subnet:
         vpc_id: "{{vpc.vpc.id}}"
         cidr: 10.10.1.0/24
+        az: "us-east-2a"
         map_public: yes
         tags:
           Name: "ig-Module5-Public-SN-1"
@@ -26,6 +27,7 @@
       ec2_vpc_subnet:
         vpc_id: "{{vpc.vpc.id}}"
         cidr: 10.10.2.0/24
+        az: "us-east-2b"
         map_public: yes
         tags:
           Name: "ig-Module5-Public-SN-2"

@@ -1,0 +1,81 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+
+  tasks:
+    - name: Create webserver launch template
+      ec2_launch_template:
+        name: "ig-launch-template"
+        image_id: "ami-026dea5602e368e96"
+        key_name: smw0036
+        iam_instance_profile: "image-gallery-server-role"
+        security_group_ids:
+          - "{{postgres_tag_sg.group_id}}"
+          - "{{webserver_sg.group_id}}"
+        instance_type: t2.micro
+        region: "us-east-2"
+        user_data: "{{ lookup('file', 'launchtemplate.sh') | b64encode }}"
+
+    - name: Create Target Group
+      elb_target_group:
+        name: "ig-Module5-target-group"
+        protocol: tcp
+        port: 80
+        vpc_id: "{{vpc.vpc.id}}"
+        state: present
+        stickiness_enabled: no
+        stickiness_type: source_ip
+      register: target_group
+      
+    - name: Create Autoscaling Group
+      ec2_asg:
+        launch_template:
+          launch_template_name: "ig-launch-template"
+        min_size: 2
+        max_size: 4
+        name: "ig-Module5-asg"
+        region: "us-east-2"
+        target_group_arns:
+          - "{{target_group.target_group_arn}}"
+        vpc_zone_identifier:
+          - "{{public_subnet_1.subnet.id}}"
+          - "{{public_subnet_2.subnet.id}}"
+        tags:
+          - Name: "Module 5 Webserver"
+          - Module: "5"
+      
+    - name: Create Network ELB
+      elb_network_lb:
+        name: "ig-Module5-NLB"
+        cross_zone_load_balancing: yes
+        region: "us-east-2"
+        subnets:
+          - "{{public_subnet_1.subnet.id}}"
+          - "{{public_subnet_2.subnet.id}}"
+        listeners:
+          - Protocol: TCP
+            Port: 80
+            DefaultActions:
+              - Type: forward
+                TargetGroupName: "ig-Module5-target-group"
+          - Protocol: TLS
+            Port: 443
+            Certificates:
+              - CertificateArn: arn:aws:acm:us-east-2:401437058170:certificate/8c34f4e5-306e-454e-9d31-caeb57f034a7
+            DefaultActions:
+              - Type: forward
+                TargetGroupName: "ig-Module5-target-group"
+        state: present
+      register: nlb
+
+    - name: Setup Route53
+      route53:
+        state: present
+        zone: zksward.com
+        record: zksward.com
+        type: A
+        alias: yes
+        alias_hosted_zone_id: "{{nlb.canonical_hosted_zone_id}}"
+        overwrite: yes
+        value: "{{nlb.dns_name}}"
