@@ -1,5 +1,8 @@
 ---
-- hosts: all
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  
   tasks:
     - name: Create VPC
       ec2_vpc_net:
@@ -7,22 +10,27 @@
         cidr_block: 10.10.0.0/16
         region: "us-east-2"
         tags:
-          Module: 5
+          Module: "5"
       register: vpc
+
     - name: Create public subnet 1
       ec2_vpc_subnet:
         vpc_id: "{{vpc.vpc.id}}"
         cidr: 10.10.1.0/24
+        map_public: yes
         tags:
           Name: "ig-Module5-Public-SN-1"
       register: public_subnet_1
+
     - name: Create public subnet 2
       ec2_vpc_subnet:
         vpc_id: "{{vpc.vpc.id}}"
         cidr: 10.10.2.0/24
+        map_public: yes
         tags:
           Name: "ig-Module5-Public-SN-2"
       register: public_subnet_2
+
     - name: Create private subnet 1
       ec2_vpc_subnet:
         vpc_id: "{{vpc.vpc.id}}"
@@ -30,6 +38,7 @@
         tags:
           Name: "ig-Module5-Private-SN-1"
       register: private_subnet_1
+
     - name: Create private subnet 2
       ec2_vpc_subnet:
         vpc_id: "{{vpc.vpc.id}}"
@@ -37,21 +46,23 @@
         tags:
           Name: "ig-Module5-Private-SN-2"
       register: private_subnet_2
+
     - name: Create internet gateway
       ec2_vpc_igw:
         vpc_id: "{{vpc.vpc.id}}"
         tags:
           Name: "ig-Module5-igw"
-          Module: 5
+          Module: "5"
       register: igw
+
     - name: Create NAT gateway
       ec2_vpc_nat_gateway:
-        vpc_id: "{{vpc.vpc.id}}"
         subnet_id: "{{public_subnet_1.subnet.id}}"
-        tags:
-          Name: "ig-Module5-nat"
-          Module: 5
+        region: "us-east-2"
+        if_exist_do_not_create: yes
+        wait: yes
       register: nat
+
     - name: Set up public subnet route table
       ec2_vpc_route_table:
         vpc_id: "{{vpc.vpc.id}}"
@@ -65,6 +76,7 @@
           - dest: 0.0.0.0/0
             gateway_id: "{{ igw.gateway_id }}"
       register: public_route_table
+
     - name: Set up private subnet route table
       ec2_vpc_route_table:
         vpc_id: "{{vpc.vpc.id}}"
@@ -76,8 +88,9 @@
           - "{{ private_subnet_2.subnet.id }}"
         routes:
           - dest: 0.0.0.0/0
-            instance_id: "{{ nat.instance_id }}"
+            gateway_id: "{{ nat.nat_gateway_id }}"
       register: private_route_table
+
     - name: Create public network acl
       ec2_vpc_nacl:
         vpc_id: "{{vpc.vpc.id}}"
@@ -87,15 +100,26 @@
           - "{{public_subnet_1.subnet.id}}"
           - "{{public_subnet_2.subnet.id}}"
         tags:
-          Module: 5
+          Module: "5"
         ingress:
             # rule no, protocol, allow/deny, cidr, icmp_type, icmp_code,
             #                                             port from, port to
             - [100, 'tcp', 'allow', '0.0.0.0/0', null, null, 22, 22]
-            - [200, 'tcp', 'allow', '0.0.0.0/0', null, null, 80, 80]
-            - [300, 'icmp', 'allow', '0.0.0.0/0', 0, 8]
+            - [200, 'tcp', 'allow', '73.43.82.15/32', null, null, 80, 80]
+            - [210, 'tcp', 'allow', '24.196.25.139/32', null, null, 80, 80]
+            - [220, 'tcp', 'allow', '24.239.105.213/32', null, null, 80, 80]
+            - [300, 'tcp', 'allow', '73.43.82.15/32', null, null, 443, 443]
+            - [310, 'tcp', 'allow', '24.196.25.139/32', null, null, 443, 443]
+            - [320, 'tcp', 'allow', '24.239.105.213/32', null, null, 443, 443]
+            - [400, 'tcp', 'allow', '10.10.0.0/16', null, null, 0, 65535]
+            - [900, 'tcp', 'allow', '0.0.0.0/0', null, null, 32768, 61000]
         egress:
-            - [100, 'all', 'allow', '0.0.0.0/0', null, null, null, null]
+            - [100, 'tcp', 'allow', '0.0.0.0/0', null, null, 80, 80]
+            - [200, 'tcp', 'allow', '0.0.0.0/0', null, null, 443, 443]
+            - [300, 'tcp', 'allow', '10.10.0.0/16', null, null, 5432, 5432]
+            - [400, 'tcp', 'allow', '10.10.0.0/16', null, null, 0, 65535]
+            - [900, 'tcp', 'allow', '0.0.0.0/0', null, null, 1024, 65535]
+            
     - name: Create private network acl
       ec2_vpc_nacl:
         vpc_id: "{{vpc.vpc.id}}"
@@ -105,12 +129,12 @@
           - "{{private_subnet_1.subnet.id}}"
           - "{{private_subnet_2.subnet.id}}"
         tags:
-          Module: 5
+          Module: "5"
         ingress:
             # rule no, protocol, allow/deny, cidr, icmp_type, icmp_code,
             #                                             port from, port to
-            - [100, 'tcp', 'allow', '0.0.0.0/0', null, null, 22, 22]
-            - [200, 'tcp', 'allow', '0.0.0.0/0', null, null, 80, 80]
-            - [300, 'icmp', 'allow', '0.0.0.0/0', 0, 8]
+            - [100, 'tcp', 'allow', '10.10.0.0/16', null, null, 0, 65535]
+            - [900, 'tcp', 'allow', '0.0.0.0/0', null, null, 1024, 65535]
         egress:
-            - [100, 'all', 'allow', '0.0.0.0/0', null, null, null, null]
+            - [100, 'tcp', 'allow', '10.10.0.0/16', null, null, 0, 65535]
+            - [900, 'tcp', 'allow', '0.0.0.0/0', null, null, 1024, 65535]

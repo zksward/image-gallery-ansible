@@ -1,0 +1,91 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+
+  tasks:
+    - name: Create webserver security group
+      ec2_group:
+        vpc_id: "{{vpc.vpc.id}}"
+        name: "ig-Module5-webserver"
+        description: "SG for webservers (allows traffic from/on 80, 22)"
+        region: "us-east-2"
+        rules:
+          - proto: tcp
+            ports:
+            - 80
+            - 22
+            cidr_ip: 0.0.0.0/0
+            rule_desc: allow all on port 80 and 22
+      register: webserver_sg
+
+    - name: Create postgres security group
+      ec2_group:
+        vpc_id: "{{vpc.vpc.id}}"
+        name: "ig-Module5-postgres"
+        description: "SG for postgres"
+        region: "us-east-2"
+        purge_rules: no
+      register: postgres_sg
+
+    - name: Create postgres-tag security group
+      ec2_group:
+        vpc_id: "{{vpc.vpc.id}}"
+        name: "ig-Module5-postgres-tag"
+        description: "SG for postgres"
+        region: "us-east-2"
+        rules_egress:
+          - proto: tcp
+            ports:
+            - 5432
+            group_name: "ig-Module5-postgres"
+            rule_desc: allow postgres tagged machines to access
+      register: postgres_tag_sg
+
+    - name: Modify postgres security group
+      ec2_group:
+        vpc_id: "{{vpc.vpc.id}}"
+        name: "ig-Module5-postgres"
+        description: "SG for postgres"
+        region: "us-east-2"
+        rules:
+          - proto: tcp
+            ports:
+            - 5432
+            group_name: "ig-Module5-postgres-tag"
+            rule_desc: allow postgres tagged machines access on port 5432
+
+    - name: Get webserver IAM role
+      iam_role_info:
+        name: "image-gallery-server-role"
+      register: webserver_role
+
+    - name: Create bastion server
+      ec2_instance:
+        name: bastion
+        security_groups:
+          - "{{webserver_sg.group_id}}"
+          - "{{postgres_tag_sg.group_id}}"
+        image_id: "ami-026dea5602e368e96"
+        instance_type: "t2.micro"
+        region: "us-east-2"
+        key_name: "smw0036"
+        user_data: "{{ lookup('file', 'bastion.sh') }}"
+        vpc_subnet_id: "{{public_subnet_1.subnet.id}}"
+      register: bastion_server
+    
+    - name: Add bastion to bastion group
+      add_host:
+        hostname: "{{ bastion_server.instances[0].network_interfaces[0].association.public_ip }}"
+        ansible_user: "ec2-user"
+        groupname: bastion
+
+    # - name: Debug
+    #   debug:
+    #     var: bastion_server.instances[0].network_interfaces[0].association.public_ip
+
+    # - name: Wait for cloud-init / user-data to finish
+    #   delegate_to: "{{ bastion_server.instances[0].network_interfaces[0].association.public_ip }}"
+    #   command: cloud-init status --wait
+    #   become: yes
+    #   changed_when: false

@@ -1,0 +1,14 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+
+  tasks:
+    - name: Create Image Gallery Bucket
+      s3_bucket:
+        name: "edu.auburn.smw0036.image-gallery"
+        state: present
+    - name: Create Image Gallery Config Bucket
+      s3_bucket:
+        name: "edu.auburn.smw0036.image-gallery-config"
+        state: present

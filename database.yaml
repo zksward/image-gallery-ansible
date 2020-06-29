@@ -1,0 +1,26 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+
+  tasks:
+    - name: Create database subnet group
+      rds_subnet_group:
+        name: "ig-Module5-rds-subnet-group"
+        description: Private subnet group for RDS
+        subnets:
+          - "{{private_subnet_1.subnet.id}}"
+          - "{{private_subnet_2.subnet.id}}"
+      register: subnet_group
+    - name: Create postgres RDS instance
+      rds_instance:
+        db_instance_identifier: "ig-Module5-image-gallery"
+        db_name: "image-gallery"
+        db_subnet_group_name: "{{subnet_group.subnet_group.name}}"
+        engine: postgres
+        password: "{{ lookup('aws_secret', 'ig/rds/postgres/admin') | from_json | json_query('password') }}"
+        username: "{{ lookup('aws_secret', 'ig/rds/postgres/admin') | from_json | json_query('username') }}"
+        region: "us-east-2"
+        vpc_security_group_ids:
+          - "{{postgres_sg.group_ip}}"
+      register: rds

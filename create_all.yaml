@@ -1,4 +1,7 @@
 ---
 - import_playbook: networking.yaml
+- import_playbook: storage.yaml
+- import_playbook: security.yaml
 - import_playbook: database.yaml
-- import_playbook: webservers.yaml
+- import_playbook: bastion.yaml
+#- import_playbook: webservers.yaml

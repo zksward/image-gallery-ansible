@@ -1,0 +1,8 @@
+---
+- hosts: bastion
+
+  tasks:
+    - name: Wait for cloud-init / user-data to finish
+      command: cloud-init status --wait
+      become: yes
+      changed_when: false
