@@ -15,7 +15,7 @@
         responses:
           (.*)=>:
             - "CREATE DATABASE imagegallery;"
-            - "CREATE USER imagegallery WITH ENCRYPTED PASSWORD '{{ lookup('aws_secret', 'ig/postgres/imagegallery') | from_json | json_query('password') | quote }}';"
+            - "CREATE USER imagegallery WITH ENCRYPTED PASSWORD '{{ lookup('aws_secret', 'ig/postgres/imagegallery') | from_json | json_query('password') }}';"
             - "GRANT ALL PRIVILEGES ON DATABASE imagegallery TO imagegallery;"
             - "\\q"
       environment:
