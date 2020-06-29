@@ -26,8 +26,7 @@
         description: "SG for postgres"
         region: "us-east-2"
         purge_rules: no
-      register: postgres_sg
-
+      
     - name: Create postgres-tag security group
       ec2_group:
         vpc_id: "{{vpc.vpc.id}}"
@@ -54,6 +53,7 @@
             - 5432
             group_name: "ig-Module5-postgres-tag"
             rule_desc: allow postgres tagged machines access on port 5432
+      register: postgres_sg
 
     - name: Get webserver IAM role
       iam_role_info:
