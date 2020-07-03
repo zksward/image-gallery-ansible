@@ -23,9 +23,45 @@
         db_name: "imagegallery"
         db_subnet_group_name: "{{subnet_group.subnet_group.name}}"
         engine: postgres
-        password: "{{ lookup('aws_secret', 'ig/rds/postgres/admin') | from_json | json_query('password') }}"
-        username: "{{ lookup('aws_secret', 'ig/rds/postgres/admin') | from_json | json_query('username') }}"
+        password: "{{ lookup('aws_secret', 'ig/m5/postgres/admin') | from_json | json_query('password') }}"
+        username: "{{ lookup('aws_secret', 'ig/m5/postgres/admin') | from_json | json_query('username') }}"
         region: "us-east-2"
         vpc_security_group_ids:
           - "{{postgres_sg.group_id}}"
       register: rds
+
+    - name: Set postgres admin dictionary
+      set_fact:
+        postgres_admin_secret: |-
+          {
+            "username": "{{ lookup('aws_secret', 'ig/m5/postgres/admin') | from_json | json_query('username') }}",
+            "password": "{{ lookup('aws_secret', 'ig/m5/postgres/admin') | from_json | json_query('password') }}",
+            "engine": "postgres",
+            "host": "{{ rds.endpoint.address }}",
+            "port": 5432,
+            "dbInstanceIdentifier": "image-gallery"
+          }
+    - name: Set image gallery dictionary
+      set_fact:
+        image_gallery_secret: |-
+          {
+            "username": "{{ lookup('aws_secret', 'ig/m5/postgres/imagegallery') | from_json | json_query('username') }}",
+            "password": "{{ lookup('aws_secret', 'ig/m5/postgres/imagegallery') | from_json | json_query('password') }}",
+            "engine": "postgres",
+            "host": "{{ rds.endpoint.address }}",
+            "port": 5432,
+            "dbInstanceIdentifier": "image-gallery",
+            "dbname": "imagegallery"
+          }
+
+    - name: Set secrets manager db information (admin)
+      aws_secret:
+        name: "ig/m5/postgres/admin"
+        region: "us-east-2"
+        secret: "{{ postgres_admin_secret | to_json }}"
+
+    - name: Set secrets manager db information (user)
+      aws_secret:
+        name: "ig/m5/postgres/imagegallery"
+        region: "us-east-2"
+        secret: "{{ image_gallery_secret | to_json }}"

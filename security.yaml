@@ -79,13 +79,3 @@
         hostname: "{{ bastion_server.instances[0].network_interfaces[0].association.public_ip }}"
         ansible_user: "ec2-user"
         groupname: bastion
-
-    # - name: Debug
-    #   debug:
-    #     var: bastion_server.instances[0].network_interfaces[0].association.public_ip
-
-    # - name: Wait for cloud-init / user-data to finish
-    #   delegate_to: "{{ bastion_server.instances[0].network_interfaces[0].association.public_ip }}"
-    #   command: cloud-init status --wait
-    #   become: yes
-    #   changed_when: false

@@ -11,12 +11,24 @@
 
     - name: Setup postgres user and start interactive shell
       expect: 
-        command: "psql -h 'ig-module5-image-gallery.cbe9maka1qnr.us-east-2.rds.amazonaws.com' -U postgres"
+        command: "psql -h '{{ lookup('aws_secret', 'ig/m5/postgres/imagegallery') | from_json | json_query('host') }}' -U postgres"
         responses:
           (.*)=>:
             - "CREATE DATABASE imagegallery;"
-            - "CREATE USER imagegallery WITH ENCRYPTED PASSWORD '{{ lookup('aws_secret', 'ig/postgres/imagegallery') | from_json | json_query('password') }}';"
+            - "CREATE USER imagegallery WITH ENCRYPTED PASSWORD '{{ lookup('aws_secret', 'ig/m5/postgres/imagegallery') | from_json | json_query('password') }}';"
             - "GRANT ALL PRIVILEGES ON DATABASE imagegallery TO imagegallery;"
+            - "\\c imagegallery"
+            - "CREATE TABLE IF NOT EXISTS users (username varchar unique not null, full_name varchar, password varchar);"
             - "\\q"
       environment:
-        PGPASSWORD: "{{lookup('aws_secret', 'ig/rds/postgres/admin') | from_json | json_query('password') }}"
+        PGPASSWORD: "{{lookup('aws_secret', 'ig/m5/postgres/admin') | from_json | json_query('password') }}"
+
+    - name: Create user table with imagegallery user
+      expect: 
+        command: "psql -h '{{ lookup('aws_secret', 'ig/m5/postgres/imagegallery') | from_json | json_query('host') }}' -U imagegallery"
+        responses:
+          (.*)=>:
+            - "CREATE TABLE IF NOT EXISTS users (username varchar unique not null, full_name varchar, password varchar);"
+            - "\\q"
+      environment:
+        PGPASSWORD: "{{lookup('aws_secret', 'ig/m5/postgres/imagegallery') | from_json | json_query('password') }}"
